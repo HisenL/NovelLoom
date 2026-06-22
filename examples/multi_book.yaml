@@ -1,0 +1,34 @@
+project:
+  name: 江湖暗涌·书系
+  premise: 一个现代都市青年意外获得古武传承，在暗流涌动的江湖中寻找身世之谜
+  language: zh-CN
+  token_budget: 600000
+  books:
+    - key: main
+      type: main
+      title: 江湖暗涌
+    - key: bio-linwuxi
+      type: biography
+      title: 林无忌传
+      perspective: 林无忌
+      source_book: main
+    - key: side-rival
+      type: alternate_pov
+      title: 剑影另一面
+      perspective: 无名剑客
+      source_book: main
+
+model_routes:
+  world_builder: custom-default
+  plot_reasoner: custom-default
+  chapter_planner: custom-default
+  writer: custom-default
+  extractor: custom-default
+  critic: custom-default
+
+provider_profiles:
+  - key: custom-default
+    provider: openai_compatible
+    model: your-model-name
+    base_url: https://your-compatible-endpoint.example/v1
+    secret_ref: env:YOUR_MODEL_API_KEY

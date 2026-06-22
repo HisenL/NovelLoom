@@ -1,0 +1,43 @@
+# secrets
+.env
+.env.*
+!.env.example
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+.conda/
+dist/
+build/
+*.egg-info/
+*.tsbuildinfo
+web/vite.config.js
+web/vite.config.d.ts
+
+# Node
+web/node_modules/
+web/dist/
+!web/dist/
+web/dist/*
+!web/dist/.gitkeep
+web/playwright-report/
+web/test-results/
+
+# Runtime data
+data/*
+!data/.gitkeep
+exports/*
+!exports/.gitkeep
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,17 @@
+app:
+  database_url: sqlite:///./data/novelloom.db
+  checkpoint_path: ./data/checkpoints.db
+  output_dir: ./exports
+  language: zh-CN
+
+server:
+  host: 127.0.0.1
+  port: 8123
+  open_browser: true
+
+runtime:
+  max_concurrent_projects: 1
+  default_token_budget: 1000000
+  default_cost_budget: null
+
+providers: []

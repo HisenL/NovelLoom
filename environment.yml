@@ -1,0 +1,9 @@
+name: novelloom
+channels:
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - pip>=26.1.2
+      - -e .[dev]

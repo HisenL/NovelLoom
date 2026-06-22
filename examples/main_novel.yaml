@@ -1,0 +1,25 @@
+project:
+  name: 江湖暗涌
+  premise: 一个现代都市青年意外获得古武传承，在暗流涌动的江湖中寻找身世之谜
+  language: zh-CN
+  token_budget: 300000
+  books:
+    - key: main
+      type: main
+      title: 江湖暗涌
+
+model_routes:
+  world_builder: deepseek-default
+  plot_reasoner: deepseek-default
+  chapter_planner: deepseek-default
+  writer: deepseek-default
+  extractor: deepseek-default
+  critic: deepseek-default
+
+# Configure the profile in the Web UI. The API key is stored in the OS keyring.
+provider_profiles:
+  - key: deepseek-default
+    provider: openai_compatible
+    model: deepseek-chat
+    base_url: https://api.deepseek.com/v1
+    secret_ref: keyring:novelloom/deepseek-default

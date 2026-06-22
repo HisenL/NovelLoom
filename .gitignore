@@ -3,6 +3,17 @@
 .env.*
 !.env.example
 *.pem
+*.key
+*.p12
+*.pfx
+*.jks
+id_rsa*
+credentials*.json
+secrets*.json
+secrets*.yaml
+secrets*.yml
+novelloom.local.yaml
+novelloom.local.yml
 
 # Python
 __pycache__/
@@ -31,6 +42,12 @@ web/playwright-report/
 web/test-results/
 
 # Runtime data
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.docx
 data/*
 !data/.gitkeep
 exports/*

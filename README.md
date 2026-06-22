@@ -78,6 +78,12 @@ pnpm test
 pnpm build
 ```
 
+推送前额外执行隐私扫描：
+
+```powershell
+./.conda/python.exe scripts/privacy_check.py
+```
+
 当前自动化基线包含 28 项 Python 测试，核心服务覆盖率 93%、工作流覆盖率 94%，并覆盖 100 事件规划投影、12+4 章离线端到端流程、DAG、级联重算、恢复、预算、Provider 合约与双格式导出。真实模型的 12+4 成稿验收仍属于发布前门槛，不在仓库中伪造结果。
 
 ## 架构与扩展
@@ -85,6 +91,7 @@ pnpm build
 - [架构说明](docs/architecture.md)
 - [Provider 开发](docs/provider-development.md)
 - [故障恢复](docs/recovery.md)
+- [隐私、脱敏与 GitHub 发布](docs/privacy-and-publishing.md)
 - [安全策略](SECURITY.md)
 - [贡献指南](CONTRIBUTING.md)
 - [第三方许可证](THIRD_PARTY_NOTICES.md)

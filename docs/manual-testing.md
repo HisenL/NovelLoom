@@ -107,9 +107,12 @@ ng serve
 - 正文写作：长上下文、文风稳定模型。
 - 信息抽取、审核：便宜且结构化输出稳定的模型。
 
+每个角色都可以配置主模型和回退链。推荐先给 `world_builder`、`plot_reasoner`、`chapter_planner` 配一个同协议或同能力的备用模型；正文写作可以把便宜模型放在回退链末尾，避免高价模型临时不可用时整个工作流中断。
+
 ## 4. 常见失败与判断
 
 - `尚未配置模型角色`：至少要给 `world_builder`、`plot_reasoner`、`chapter_planner`、`writer`、`extractor`、`critic` 配置主模型。可以先点“应用到全部角色”。
+- 主模型失败后仍失败：检查该角色是否配置了回退链，且回退模型的 Base URL、密钥和结构化输出能力是否可用。
 - `OpenAI-compatible provider requires base_url`：OpenAI-compatible 预设必须填写 Base URL。
 - `未找到密钥引用`：环境变量未设置，或 Keyring 中没有该引用。
 - `Provider returned 401/403`：密钥、Base URL 或模型名不正确。

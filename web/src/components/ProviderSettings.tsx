@@ -19,6 +19,11 @@ type RouteState = {
   fallback_profile_ids: string[]
 }
 
+type RouteDraft = {
+  primary_profile_id: string
+  fallback_profile_ids: string[]
+}
+
 type ProviderPreset = {
   id: string
   label: string
@@ -234,7 +239,7 @@ function applyPresetToState(preset: ProviderPreset): FormState {
 export function ProviderSettings({ projectId }: { projectId: string }) {
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [adapters, setAdapters] = useState<string[]>([])
-  const [routes, setRoutes] = useState<Record<string, string>>({})
+  const [routes, setRoutes] = useState<Record<string, RouteDraft>>({})
   const [notice, setNotice] = useState('')
   const [form, setForm] = useState<FormState>(initialForm)
 
@@ -251,7 +256,13 @@ export function ProviderSettings({ projectId }: { projectId: string }) {
     ])
     setProfiles(profileData.items)
     setAdapters(adapterData.items)
-    setRoutes(Object.fromEntries(routeData.items.map((route) => [route.role, route.primary_profile_id])))
+    setRoutes(Object.fromEntries(routeData.items.map((route) => [
+      route.role,
+      {
+        primary_profile_id: route.primary_profile_id,
+        fallback_profile_ids: route.fallback_profile_ids ?? [],
+      },
+    ])))
   }
 
   useEffect(() => {
@@ -284,14 +295,50 @@ export function ProviderSettings({ projectId }: { projectId: string }) {
     await load()
   }
 
-  const setRoute = async (role: string, profileId: string) => {
-    if (!profileId) return
+  const persistRoute = async (role: string, route: RouteDraft) => {
+    if (!route.primary_profile_id) {
+      setRoutes((current) => ({ ...current, [role]: route }))
+      return
+    }
+    const fallbackProfileIds = route.fallback_profile_ids.filter((profileId) => (
+      profileId && profileId !== route.primary_profile_id
+    ))
     await request(`/api/projects/${projectId}/routes/${role}`, {
       method: 'PUT',
-      body: JSON.stringify({ primary_profile_id: profileId, fallback_profile_ids: [], parameters: {} }),
+      body: JSON.stringify({
+        primary_profile_id: route.primary_profile_id,
+        fallback_profile_ids: fallbackProfileIds,
+        parameters: {},
+      }),
     })
-    setRoutes((current) => ({ ...current, [role]: profileId }))
+    setRoutes((current) => ({
+      ...current,
+      [role]: {
+        primary_profile_id: route.primary_profile_id,
+        fallback_profile_ids: fallbackProfileIds,
+      },
+    }))
     setNotice(`${roleLabels[role] ?? role} 路由已更新。`)
+  }
+
+  const setPrimaryRoute = async (role: string, profileId: string) => {
+    const current = routes[role] ?? { primary_profile_id: '', fallback_profile_ids: [] }
+    await persistRoute(role, {
+      primary_profile_id: profileId,
+      fallback_profile_ids: current.fallback_profile_ids,
+    })
+  }
+
+  const setFallbackRoute = async (role: string, fallbackProfileIds: string[]) => {
+    const current = routes[role] ?? { primary_profile_id: '', fallback_profile_ids: [] }
+    if (!current.primary_profile_id) {
+      setNotice('请先为该角色选择主模型，再配置回退链。')
+      return
+    }
+    await persistRoute(role, {
+      primary_profile_id: current.primary_profile_id,
+      fallback_profile_ids: fallbackProfileIds,
+    })
   }
 
   const applyAllRoutes = async (profileId: string) => {
@@ -301,7 +348,10 @@ export function ProviderSettings({ projectId }: { projectId: string }) {
         body: JSON.stringify({ primary_profile_id: profileId, fallback_profile_ids: [], parameters: {} }),
       })
     }
-    setRoutes(Object.fromEntries(roles.map((role) => [role, profileId])))
+    setRoutes(Object.fromEntries(roles.map((role) => [
+      role,
+      { primary_profile_id: profileId, fallback_profile_ids: [] },
+    ])))
     setNotice('已将该模型应用到全部创作角色；现在可以启动世界构建流程。')
   }
 
@@ -388,15 +438,37 @@ export function ProviderSettings({ projectId }: { projectId: string }) {
         <div className="settings-card">
           <Route/>
           <h3>角色路由</h3>
-          <p className="form-hint">先用同一个模型应用到全部角色跑通；稳定后再把世界构建、事件推演、正文写作拆到不同模型。</p>
-          {roles.map((role) => (
-            <label key={role}>{roleLabels[role] ?? role}
-              <select value={routes[role] ?? ''} onChange={(event) => void setRoute(role, event.target.value).catch((error) => setNotice(error.message))}>
-                <option value="">选择主模型</option>
-                {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.key} / {profile.model}</option>)}
-              </select>
-            </label>
-          ))}
+          <p className="form-hint">先用同一个模型应用到全部角色跑通；稳定后再把世界构建、事件推演、正文写作拆到不同模型，并给关键角色配置回退链。</p>
+          {roles.map((role) => {
+            const route = routes[role] ?? { primary_profile_id: '', fallback_profile_ids: [] }
+            return (
+              <div className="route-block" key={role}>
+                <label>{roleLabels[role] ?? role}
+                  <select value={route.primary_profile_id} onChange={(event) => void setPrimaryRoute(role, event.target.value).catch((error) => setNotice(error.message))}>
+                    <option value="">选择主模型</option>
+                    {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.key} / {profile.model}</option>)}
+                  </select>
+                </label>
+                <label>回退链（按选择顺序尝试）
+                  <select
+                    multiple
+                    size={Math.min(Math.max(profiles.length, 2), 4)}
+                    value={route.fallback_profile_ids}
+                    onChange={(event) => {
+                      const fallbackIds = Array.from(event.currentTarget.selectedOptions).map((option) => option.value)
+                      void setFallbackRoute(role, fallbackIds).catch((error) => setNotice(error.message))
+                    }}
+                  >
+                    {profiles.map((profile) => (
+                      <option key={profile.id} value={profile.id} disabled={profile.id === route.primary_profile_id}>
+                        {profile.key} / {profile.model}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            )
+          })}
         </div>
         <div className="settings-card wide">
           <ShieldCheck/>

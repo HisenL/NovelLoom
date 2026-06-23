@@ -138,3 +138,34 @@ def test_provider_connection_test_reports_missing_secret_without_500(
         assert response.status_code == 200
         assert response.json()["ok"] is False
         assert "NOVELLOOM_MISSING_SECRET" not in response.text
+
+
+def test_route_api_persists_ordered_fallback_chain(
+    engine: NovelLoomEngine, project: dict[str, object]
+) -> None:
+    project_id = str(project["id"])
+    with TestClient(create_app(engine)) as client:
+        profiles = [
+            client.post(
+                f"/api/projects/{project_id}/providers",
+                json={"key": key, "provider": "mock", "model": "fixture"},
+            ).json()
+            for key in ("primary", "fallback-a", "fallback-b")
+        ]
+        response = client.put(
+            f"/api/projects/{project_id}/routes/world_builder",
+            json={
+                "primary_profile_id": profiles[0]["id"],
+                "fallback_profile_ids": [profiles[1]["id"], profiles[2]["id"]],
+                "parameters": {"temperature": 0.2},
+            },
+        )
+        assert response.status_code == 200
+        route = response.json()
+        assert route["fallback_profile_ids"] == [profiles[1]["id"], profiles[2]["id"]]
+
+        routes = client.get(f"/api/projects/{project_id}/routes").json()["items"]
+        saved = next(item for item in routes if item["role"] == "world_builder")
+        assert saved["primary_profile_id"] == profiles[0]["id"]
+        assert saved["fallback_profile_ids"] == [profiles[1]["id"], profiles[2]["id"]]
+        assert saved["parameters"] == {"temperature": 0.2}

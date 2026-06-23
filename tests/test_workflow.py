@@ -115,6 +115,33 @@ async def test_durable_workflow_and_12_plus_4_batch(
 
 
 @pytest.mark.asyncio
+async def test_default_mock_provider_can_drive_web_demo_workflow(
+    engine: NovelLoomEngine, project: dict[str, object]
+) -> None:
+    project_id = str(project["id"])
+    profile = engine.providers.save_profile(
+        project_id=project_id,
+        key="mock-demo",
+        provider="mock",
+        model="fixture",
+        capabilities={"structured_output": True},
+    )
+    for role in ModelRole:
+        engine.providers.set_route(
+            project_id=project_id,
+            role=role,
+            primary_profile_id=profile["id"],
+        )
+
+    started = await engine.workflow.start(project_id)
+    await engine.workflow.resume(started["run_id"], approve=True)
+    await engine.workflow.resume(started["run_id"], approve=True)
+    finished = await engine.workflow.resume(started["run_id"], approve=True)
+    assert finished["state"]["step"] == "done"
+    assert len(engine.artifacts.list_artifacts(project_id, kind="chapter_outline")) == 16
+
+
+@pytest.mark.asyncio
 async def test_rejected_world_can_be_regenerated_without_duplicate_rows(
     engine: NovelLoomEngine, project: dict[str, object]
 ) -> None:

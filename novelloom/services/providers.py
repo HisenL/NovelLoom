@@ -15,7 +15,7 @@ from ..providers import (
     ProviderRegistry,
 )
 from ..providers.base import ProviderError
-from ..providers.secrets import SecretStore
+from ..providers.secrets import SecretNotFound, SecretStore
 from .core import BudgetExceeded, DomainError, NotFound
 
 
@@ -49,6 +49,16 @@ class ProviderService:
         enabled: bool = True,
     ) -> dict[str, Any]:
         self.registry.get(provider)
+        key = key.strip()
+        provider = provider.strip()
+        model = model.strip()
+        base_url = base_url.strip()
+        secret_ref = secret_ref.strip()
+        api_key = api_key.strip() if api_key else None
+        if not key:
+            raise DomainError("Provider 配置键不能为空")
+        if not model:
+            raise DomainError("模型名不能为空")
         sensitive_headers = {
             "authorization",
             "proxy-authorization",
@@ -58,11 +68,31 @@ class ProviderService:
         }
         if any(name.lower() in sensitive_headers for name in (headers or {})):
             raise DomainError("敏感请求头不能写入数据库，请改用 secret_ref")
+        if secret_ref and not self._is_secret_reference(secret_ref):
+            if api_key:
+                raise DomainError(
+                    "密钥引用不能填写明文。请使用 env:变量名 / keyring:服务/用户名，"
+                    "或把 API Key 填入一次性密钥字段并留空引用。"
+                )
+            if self._looks_like_plain_secret(secret_ref):
+                api_key = secret_ref
+                secret_ref = ""
+            else:
+                raise DomainError(
+                    "密钥引用格式无效。请填写 env:DEEPSEEK_API_KEY、"
+                    "keyring:novelloom/deepseek-main，或把 API Key 填入一次性密钥字段。"
+                )
         if api_key:
             reference = secret_ref or f"keyring:novelloom/{project_id}-{key}"
-            self.secrets.set_keyring(reference, api_key)
+            try:
+                self.secrets.set_keyring(reference, api_key)
+            except Exception as error:
+                raise DomainError(
+                    "无法写入系统 Keyring。请改用环境变量引用 env:VARIABLE_NAME，"
+                    "或确认当前系统凭据服务可用后重试。"
+                ) from error
             secret_ref = reference
-        if secret_ref and not secret_ref.startswith(("env:", "keyring:")):
+        if secret_ref and not self._is_secret_reference(secret_ref):
             raise DomainError("密钥只能保存为 env: 或 keyring: 引用")
         with self.database.session() as session:
             if session.get(Project, project_id) is None:
@@ -141,8 +171,16 @@ class ProviderService:
 
     async def test_profile(self, profile_id: str) -> dict[str, Any]:
         profile = self._load_profile(profile_id)
-        connection = self._connection(profile)
-        response = await self.registry.get(profile["provider"]).test_connection(connection)
+        try:
+            connection = self._connection(profile)
+            response = await self.registry.get(profile["provider"]).test_connection(connection)
+        except (SecretNotFound, ProviderError, OSError, TimeoutError, KeyError) as error:
+            return {
+                "ok": False,
+                "content": self._safe_error(str(error), profile["secret_ref"]),
+                "input_tokens": 0,
+                "output_tokens": 0,
+            }
         return {
             "ok": response.content.strip().upper().startswith("OK"),
             "content": response.content[:200],
@@ -341,3 +379,27 @@ class ProviderService:
             "capabilities": profile.capabilities,
             "enabled": profile.enabled,
         }
+
+    @staticmethod
+    def _is_secret_reference(value: str) -> bool:
+        return value.startswith(("env:", "keyring:"))
+
+    @staticmethod
+    def _looks_like_plain_secret(value: str) -> bool:
+        stripped = value.strip()
+        if not stripped or any(character.isspace() for character in stripped):
+            return False
+        if "_" in stripped and stripped.upper() == stripped:
+            return False
+        lowered = stripped.lower()
+        return (
+            lowered.startswith(("sk-", "sk_", "gsk_", "skant-", "sk-ant-", "aiza"))
+            or lowered.startswith(("glpat-", "ghp_", "bearer "))
+        )
+
+    @staticmethod
+    def _safe_error(message: str, secret_ref: str = "") -> str:
+        safe = message[:300]
+        if secret_ref:
+            safe = safe.replace(secret_ref, "[secret-ref]")
+        return safe

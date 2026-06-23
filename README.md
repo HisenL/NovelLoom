@@ -26,6 +26,8 @@
 ```powershell
 conda env create -f environment.yml
 conda activate novelloom
+corepack enable
+corepack prepare pnpm@11.5.3 --activate
 
 cd web
 pnpm install --frozen-lockfile
@@ -40,6 +42,9 @@ ng serve
 ```powershell
 conda create --prefix ./.conda python=3.11 pip -y
 ./.conda/python.exe -m pip install -e ".[dev]"
+conda install --prefix ./.conda -c conda-forge nodejs=22 -y
+./.conda/corepack.cmd enable
+./.conda/corepack.cmd prepare pnpm@11.5.3 --activate
 ```
 
 浏览器访问 `http://127.0.0.1:8123`。服务默认只监听 localhost。
@@ -57,14 +62,16 @@ ng export <project-id> --format md --format docx
 
 ### Provider 密钥
 
-推荐在 Web 中填写环境变量引用，例如 `env:DEEPSEEK_API_KEY`，然后在启动前设置：
+推荐在 Web 中直接把 API Key 填入“API Key（只写入系统 Keyring）”字段；NovelLoom 会把真实密钥交给操作系统 Keyring，数据库和 API 响应只保存 `keyring:novelloom/...` 引用。
+
+也可以使用环境变量引用，例如 `env:DEEPSEEK_API_KEY`，然后在启动前设置：
 
 ```powershell
 $env:DEEPSEEK_API_KEY = "..."
 ng serve
 ```
 
-也可在 Web 中一次性提交密钥，NovelLoom 会写入操作系统 Keyring；数据库和 API 响应只保存/返回引用。
+注意：“密钥引用”不是 API Key 本身；它只接受 `env:变量名` 或 `keyring:service/name`。如果误把 `sk-...` 粘进引用字段，后端会把它按一次性 API Key 处理并转存为 Keyring 引用，不会把明文写入数据库。
 
 ## 开发验证
 
@@ -84,11 +91,12 @@ pnpm build
 ./.conda/python.exe scripts/privacy_check.py
 ```
 
-当前自动化基线包含 28 项 Python 测试，核心服务覆盖率 93%、工作流覆盖率 94%，并覆盖 100 事件规划投影、12+4 章离线端到端流程、DAG、级联重算、恢复、预算、Provider 合约与双格式导出。真实模型的 12+4 成稿验收仍属于发布前门槛，不在仓库中伪造结果。
+当前自动化基线包含 33 项 Python 测试，整体覆盖率 82%+，核心服务覆盖率 94%、工作流覆盖率 94%，并覆盖 100 事件规划投影、12+4 章离线端到端流程、DAG、级联重算、恢复、预算、Provider 合约、密钥脱敏与双格式导出。真实模型的 12+4 成稿验收仍属于发布前门槛，不在仓库中伪造结果。
 
 ## 架构与扩展
 
 - [架构说明](docs/architecture.md)
+- [手动测试流程](docs/manual-testing.md)
 - [Provider 开发](docs/provider-development.md)
 - [故障恢复](docs/recovery.md)
 - [隐私、脱敏与 GitHub 发布](docs/privacy-and-publishing.md)

@@ -1,8 +1,10 @@
 name: novelloom
 channels:
+  - conda-forge
   - defaults
 dependencies:
   - python=3.11
+  - nodejs=22
   - pip
   - pip:
       - pip>=26.1.2

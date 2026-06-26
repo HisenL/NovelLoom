@@ -52,11 +52,11 @@ export function App() {
       <header><div><span className="eyebrow">NOVELLOOM / {page.toUpperCase()}</span><h1>{project?.name ?? '创建你的第一部作品'}</h1></div><div className="budget">{project ? `${project.tokens_used.toLocaleString()} / ${project.token_budget.toLocaleString()} tokens` : '未选择项目'}</div></header>
       {error && <div className="notice error" onClick={() => setError('')}>{error}</div>}
       <Suspense fallback={<div className="notice">正在展开故事织机…</div>}>
-      {page === 'dashboard' && <Dashboard project={project} onCreated={reload}/>}
+      {page === 'dashboard' && <Dashboard project={project} onCreated={reload} onOpenSettings={() => setPage('settings')}/>}
       {page === 'world' && projectId && <GraphStudio projectId={projectId} mode="world"/>}
       {page === 'events' && projectId && <GraphStudio projectId={projectId} mode="events"/>}
       {page === 'books' && projectId && <Manuscripts projectId={projectId}/>}
-      {page === 'runs' && projectId && <Runs projectId={projectId}/>}
+      {page === 'runs' && projectId && <Runs projectId={projectId} onOpenSettings={() => setPage('settings')}/>}
       {page === 'prompts' && projectId && <PromptSettings projectId={projectId}/>}
       {page === 'settings' && projectId && <ProviderSettings projectId={projectId}/>}
       </Suspense>

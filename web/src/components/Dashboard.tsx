@@ -2,7 +2,15 @@ import { FormEvent, useState } from 'react'
 import { ArrowRight, Coins, Network, Sparkles } from 'lucide-react'
 import { Project, request } from '../api'
 
-export function Dashboard({ project, onCreated }: { project?: Project; onCreated: () => Promise<void> }) {
+function modelSetupHint(message: string): string {
+  if (message.includes('尚未配置模型角色')) {
+    const role = message.split(':').pop()?.trim()
+    return `还没有给“${role ?? '创作角色'}”绑定模型。请先进入“模型设置”：保存一个 Provider Profile，然后点击“应用到全部角色”。Prompt 工坊不用管，它只是改提示词模板。`
+  }
+  return message
+}
+
+export function Dashboard({ project, onCreated, onOpenSettings }: { project?: Project; onCreated: () => Promise<void>; onOpenSettings: () => void }) {
   const [creating, setCreating] = useState(false)
   const [message, setMessage] = useState('')
 
@@ -35,7 +43,7 @@ export function Dashboard({ project, onCreated }: { project?: Project; onCreated
 
   const remaining = Math.max(0, project.token_budget - project.tokens_used)
   return <div className="dashboard-grid">
-    <section className="hero-card"><span className="kicker">STORY CONTROL ROOM</span><h2>{project.premise}</h2><p>先稳定事实，再推进事件；先批准结构，再生成正文。</p><button onClick={() => request(`/api/projects/${project.id}/workflow/start`, { method: 'POST' }).then(() => setMessage('世界构建已运行至人工审核门。')).catch((e) => setMessage(e.message))}><Sparkles size={17}/>启动图谱推演</button>{message && <small>{message}</small>}</section>
+    <section className="hero-card"><span className="kicker">STORY CONTROL ROOM</span><h2>{project.premise}</h2><p>先稳定事实，再推进事件；先批准结构，再生成正文。</p><div className="hero-actions"><button onClick={() => request(`/api/projects/${project.id}/workflow/start`, { method: 'POST' }).then(() => setMessage('世界构建已运行至人工审核门。')).catch((e) => setMessage(modelSetupHint(e.message)))}><Sparkles size={17}/>启动图谱推演</button><button className="secondary" onClick={onOpenSettings}>先配置模型</button></div>{message && <small>{message}</small>}</section>
     <section className="metric-card"><Network/><span>共享账本</span><strong>SQLite</strong><small>不可变版本 · 可回滚</small></section>
     <section className="metric-card"><Coins/><span>剩余预算</span><strong>{remaining.toLocaleString()}</strong><small>tokens 硬上限</small></section>
     <section className="principle-card"><span>01</span><div><b>事实先于叙述</b><p>LLM 输出只进入候选区，批准后才成为共享事实。</p></div></section>

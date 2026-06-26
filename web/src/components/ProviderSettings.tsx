@@ -247,6 +247,7 @@ export function ProviderSettings({ projectId }: { projectId: string }) {
     () => presets.find((preset) => preset.id === form.preset) ?? presets[0],
     [form.preset],
   )
+  const missingRoles = roles.filter((role) => !routes[role]?.primary_profile_id)
 
   const load = async () => {
     const [profileData, adapterData, routeData] = await Promise.all([
@@ -370,11 +371,15 @@ export function ProviderSettings({ projectId }: { projectId: string }) {
           <h2>模型能力与回退链</h2>
         </div>
       </div>
+      <div className="notice setup-guide">
+        <b>第一次使用建议：</b>先选择“离线 Mock 演示”或你的真实 API 预设，保存 Profile；在“已保存配置”里点“测试连接”；最后点“应用到全部角色”。Prompt 工坊不是模型配置入口，只在你想改提示词模板时使用。
+        {missingRoles.length > 0 && <span> 当前还缺少这些模型角色：{missingRoles.map((role) => roleLabels[role] ?? role).join('、')}。</span>}
+      </div>
       {notice && <div className="notice">{notice}</div>}
       <div className="settings-grid">
         <form className="settings-card" onSubmit={(event) => void save(event).catch((error) => setNotice(error.message))}>
           <KeyRound/>
-          <h3>新增 Provider Profile</h3>
+          <h3>1. 新增 Provider Profile</h3>
           <label>常用服务预设
             <select
               value={form.preset}
@@ -437,7 +442,7 @@ export function ProviderSettings({ projectId }: { projectId: string }) {
         </form>
         <div className="settings-card">
           <Route/>
-          <h3>角色路由</h3>
+          <h3>3. 角色路由</h3>
           <p className="form-hint">先用同一个模型应用到全部角色跑通；稳定后再把世界构建、事件推演、正文写作拆到不同模型，并给关键角色配置回退链。</p>
           {roles.map((role) => {
             const route = routes[role] ?? { primary_profile_id: '', fallback_profile_ids: [] }
@@ -472,7 +477,7 @@ export function ProviderSettings({ projectId }: { projectId: string }) {
         </div>
         <div className="settings-card wide">
           <ShieldCheck/>
-          <h3>已保存配置</h3>
+          <h3>2. 已保存配置</h3>
           <div className="profile-list">
             {profiles.map((profile) => (
               <div key={profile.id}>

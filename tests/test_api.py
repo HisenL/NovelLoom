@@ -79,6 +79,37 @@ def test_plain_api_key_in_secret_ref_is_moved_to_keyring_reference(
         assert "sk-test-short" not in serialized
 
 
+def test_api_key_with_env_reference_is_stored_in_default_keyring(
+    engine: NovelLoomEngine, project: dict[str, object], monkeypatch
+) -> None:
+    project_id = str(project["id"])
+    captured: dict[str, str] = {}
+
+    def fake_set_keyring(reference: str, value: str) -> None:
+        captured["reference"] = reference
+        captured["value"] = value
+
+    monkeypatch.setattr(engine.providers.secrets, "set_keyring", fake_set_keyring)
+    with TestClient(create_app(engine)) as client:
+        response = client.post(
+            f"/api/projects/{project_id}/providers",
+            json={
+                "key": "deepseek-main",
+                "provider": "mock",
+                "model": "fixture",
+                "secret_ref": "env:DEEPSEEK_API_KEY",
+                "secret_value": "sk-test-short",
+            },
+        )
+        assert response.status_code == 201
+        payload = response.json()
+        assert payload["secret_ref"] == f"keyring:novelloom/{project_id}-deepseek-main"
+        assert captured == {
+            "reference": payload["secret_ref"],
+            "value": "sk-test-short",
+        }
+
+
 def test_invalid_secret_reference_returns_actionable_error(
     engine: NovelLoomEngine, project: dict[str, object]
 ) -> None:
@@ -137,7 +168,7 @@ def test_provider_connection_test_reports_missing_secret_without_500(
         response = client.post(f"/api/providers/{profile['id']}/test")
         assert response.status_code == 200
         assert response.json()["ok"] is False
-        assert "NOVELLOOM_MISSING_SECRET" not in response.text
+        assert "env:NOVELLOOM_MISSING_SECRET" in response.json()["content"]
 def test_route_api_persists_ordered_fallback_chain(
     engine: NovelLoomEngine, project: dict[str, object]
 ) -> None:

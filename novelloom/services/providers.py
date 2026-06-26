@@ -84,6 +84,8 @@ class ProviderService:
                 )
         if api_key:
             reference = secret_ref or f"keyring:novelloom/{project_id}-{key}"
+            if reference.startswith("env:"):
+                reference = f"keyring:novelloom/{project_id}-{key}"
             try:
                 self.secrets.set_keyring(reference, api_key)
             except Exception as error:
@@ -400,6 +402,6 @@ class ProviderService:
     @staticmethod
     def _safe_error(message: str, secret_ref: str = "") -> str:
         safe = message[:300]
-        if secret_ref:
-            safe = safe.replace(secret_ref, "[secret-ref]")
+        if secret_ref.startswith("keyring:"):
+            safe = safe.replace(secret_ref, "[keyring-secret]")
         return safe

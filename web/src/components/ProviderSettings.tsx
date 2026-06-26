@@ -43,6 +43,7 @@ type FormState = {
   provider: string
   model: string
   base_url: string
+  secret_mode: 'keyring' | 'env' | 'none'
   secret_ref: string
   secret_value: string
   headers_text: string
@@ -192,7 +193,8 @@ const initialForm: FormState = {
   provider: 'openai_compatible',
   model: 'deepseek-v4-flash',
   base_url: 'https://api.deepseek.com',
-  secret_ref: 'env:DEEPSEEK_API_KEY',
+  secret_mode: 'keyring',
+  secret_ref: '',
   secret_value: '',
   headers_text: '',
   structured_output: true,
@@ -230,7 +232,8 @@ function applyPresetToState(preset: ProviderPreset): FormState {
     provider: preset.provider,
     model: preset.model,
     base_url: preset.base_url,
-    secret_ref: preset.secret_ref,
+    secret_mode: preset.secret_ref ? 'keyring' : 'none',
+    secret_ref: '',
     structured_output: preset.structured_output,
     streaming: preset.streaming,
   }
@@ -273,6 +276,8 @@ export function ProviderSettings({ projectId }: { projectId: string }) {
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const headers = parseHeaders(form.headers_text)
+    const secretRef = form.secret_mode === 'env' ? (form.secret_ref.trim() || selectedPreset.secret_ref) : ''
+    const secretValue = form.secret_mode === 'keyring' ? form.secret_value.trim() : ''
     await request(`/api/projects/${projectId}/providers`, {
       method: 'POST',
       body: JSON.stringify({
@@ -280,8 +285,8 @@ export function ProviderSettings({ projectId }: { projectId: string }) {
         provider: form.provider,
         model: form.model,
         base_url: form.base_url,
-        secret_ref: form.secret_ref,
-        secret_value: form.secret_value || null,
+        secret_ref: secretRef,
+        secret_value: secretValue || null,
         headers,
         capabilities: {
           structured_output: form.structured_output,
@@ -372,7 +377,7 @@ export function ProviderSettings({ projectId }: { projectId: string }) {
         </div>
       </div>
       <div className="notice setup-guide">
-        <b>第一次使用建议：</b>先选择“离线 Mock 演示”或你的真实 API 预设，保存 Profile；在“已保存配置”里点“测试连接”；最后点“应用到全部角色”。Prompt 工坊不是模型配置入口，只在你想改提示词模板时使用。
+        <b>第一次使用建议：</b>先选择“离线 Mock 演示”或你的真实 API 预设；真实 API 直接把 Key 粘到“API Key”里即可，不用管 env/keyring；保存后在“已保存配置”里点“测试连接”；最后点“应用到全部角色”。Prompt 工坊不是模型配置入口，只在你想改提示词模板时使用。
         {missingRoles.length > 0 && <span> 当前还缺少这些模型角色：{missingRoles.map((role) => roleLabels[role] ?? role).join('、')}。</span>}
       </div>
       {notice && <div className="notice">{notice}</div>}
@@ -404,6 +409,24 @@ export function ProviderSettings({ projectId }: { projectId: string }) {
             <input value={form.base_url} onChange={(event) => setForm({ ...form, base_url: event.target.value })} placeholder="https://api.example.com/v1"/>
           </label>
           <label>API Key（推荐，可直接粘贴；只写入系统 Keyring）
+            <select
+              value={form.secret_mode}
+              onChange={(event) => {
+                const nextMode = event.target.value as FormState['secret_mode']
+                setForm({
+                  ...form,
+                  secret_mode: nextMode,
+                  secret_ref: nextMode === 'env' ? (form.secret_ref || selectedPreset.secret_ref) : '',
+                  secret_value: nextMode === 'keyring' ? form.secret_value : '',
+                })
+              }}
+            >
+              <option value="keyring">直接粘贴 API Key（推荐）</option>
+              <option value="env">使用环境变量引用</option>
+              <option value="none">无密钥 / 本地服务</option>
+            </select>
+          </label>
+          {form.secret_mode === 'keyring' && <label>API Key
             <input
               value={form.secret_value}
               onChange={(event) => setForm({ ...form, secret_value: event.target.value })}
@@ -411,14 +434,16 @@ export function ProviderSettings({ projectId }: { projectId: string }) {
               autoComplete="new-password"
               placeholder="sk-... / 留空则使用下面的引用"
             />
-          </label>
-          <label>高级：密钥引用（不是 API Key）
+            <small>保存时会写入操作系统 Keyring，数据库只保存 keyring: 引用。</small>
+          </label>}
+          {form.secret_mode === 'env' && <label>环境变量引用（不是 API Key）
             <input
               value={form.secret_ref}
               onChange={(event) => setForm({ ...form, secret_ref: event.target.value })}
               placeholder="env:DEEPSEEK_API_KEY 或 keyring:novelloom/deepseek-main"
             />
-          </label>
+            <small>请先在启动服务的同一个终端设置环境变量，例如 $env:DEEPSEEK_API_KEY = "sk-..."。</small>
+          </label>}
           <label>自定义请求头（可选，不要填 Authorization）
             <textarea
               value={form.headers_text}

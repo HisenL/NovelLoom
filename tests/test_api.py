@@ -138,8 +138,6 @@ def test_provider_connection_test_reports_missing_secret_without_500(
         assert response.status_code == 200
         assert response.json()["ok"] is False
         assert "NOVELLOOM_MISSING_SECRET" not in response.text
-
-
 def test_route_api_persists_ordered_fallback_chain(
     engine: NovelLoomEngine, project: dict[str, object]
 ) -> None:
